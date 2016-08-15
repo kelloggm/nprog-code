@@ -1,0 +1,87 @@
+#!/usr/bin/python
+
+import getopt
+import subprocess
+import os.path
+import sys
+from os import chdir
+
+def usage():
+    print "[-h, --help] (displays this help message, then exits)"
+    print "[-r, --genprog-path] (a path to the genprog executable; defaults to \"~/repair\")"
+    print "[-d, --directory] (path to the directory containing the program to be diversified; this option is required)"
+    print "[-n, --variants] (the number of clusters to output; defaults to 8)"
+    print "[-k, --cluster-size] (the number of edits to include in each cluster; defaults to 30)"
+    print "[-x, --generation-search-budget] (the number of probes to make during the generation phase; defaults to 400)"
+    print "[-y, --composition-search-budget] (the number of times to retry composing before giving up and moving to a lower k; defaults to 50)"
+    print "[-s, --seed] (the seed to use. Default is 0)"
+    print "[-f, --fault-scheme] (the fault scheme to pass to genprog. Defaults to \"weight\""
+
+def main(argv):
+    try:
+        opts, args = getopt.getopt(argv, "hd:k:n:r:x:y:s:f:", ["help", "directory=", "cluster-size=", "variants=", "genprog-path=", "generation-search-budget=", "composition-search-budget=", "seed=", "fault-scheme="])
+    except getopt.GetoptError:
+        usage()
+        sys.exit(2)
+    # defining defaults for most options
+    n = 8 # number of clusters
+    k = 30 # size of each cluster
+    gpath = "~/repair" # required option
+    dirn = None # required option
+    x = 400
+    y = 50
+    seed = 0
+    fault_scheme = "weight"
+    for opt,arg in opts:
+        if opt in ["-h","--help"]:
+            usage()
+            sys.exit(2)
+        elif opt in ["-n", "--variants"]:
+            n = int(arg)
+        elif opt in ["-k", "--cluster-size"]:
+            k = int(arg)
+        elif opt in ["-r","--genprog-path"]:
+            gpath = arg
+        elif opt in ["-d","--directory"]:
+            dirn = arg
+        elif opt in ["-x", "--generation-search-budget"]:
+            x = int(arg) 
+        elif opt in ["-y", "--composition-search-budget"]:
+            y = int(arg)
+        elif opt in ["-s", "--seed"]:
+            seed = int(arg)
+        elif opt in ["-f", "--fault-scheme"]:
+            fault_scheme = arg
+        else:
+            print ("the option " + opt + " was not recognized. Exiting now.")
+            usage()
+            sys.exit(2)
+
+    if dirn is None:
+        print "please supply a directory"
+        usage()
+        sys.exit(2)
+
+    
+
+    # at this point, we want to confirm that everything exists
+
+    rgflRequired = [gpath, "composer.py", "run_tests.py", "configuration-rewriter-pd.py", "configuration-rewriter-cov.py", "configuration-rewriter-delphi.py", "control-experiment.sh", "clean.sh"]
+
+    for fl in rgflRequired:
+        if not os.path.isfile(fl):
+            print "file \"" + fl + "\" cannot be located. Please check that it exists and try again."
+            sys.exit(2)
+
+    if not os.path.isdir(dirn):
+        print "directory \"" + dirn + "\" cannot be located. Please check that it exists and try again."
+        sys.exit(2)
+
+    for fl in rgflRequired:
+        subprocess.call("cp " + fl + " " + dirn, shell=True)
+    
+    chdir(dirn)
+    subprocess.call("bash control-experiment.sh " + gpath + " " + str(n) + " " + str(k) + " " + str(x) + " " + str(y) + " " + str(fault_scheme) + " " + str(seed), shell=True)
+
+if __name__ == "__main__":
+    main (sys.argv[1:])
